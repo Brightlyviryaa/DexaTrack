@@ -7,9 +7,14 @@
   "scripts": {
     "dev:web": "npm run dev --workspace @dexatrack/web",
     "dev:gateway": "npm run start:dev --workspace @dexatrack/api-gateway",
+    "dev:auth": "npm run start:dev --workspace @dexatrack/auth-service",
     "dev:employees": "npm run start:dev --workspace @dexatrack/employees-service",
     "dev:attendance": "npm run start:dev --workspace @dexatrack/attendance-service",
-    "db:generate": "npm run prisma:generate --workspace @dexatrack/employees-service && npm run prisma:generate --workspace @dexatrack/attendance-service",
+    "db:generate": "npm run prisma:generate --workspace @dexatrack/auth-service && npm run prisma:generate --workspace @dexatrack/employees-service && npm run prisma:generate --workspace @dexatrack/attendance-service",
     "build": "npm run build --workspaces --if-present"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "jsdom": "^26.1.0"
   }
 }

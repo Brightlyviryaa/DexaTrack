@@ -5,5 +5,5 @@ import { PrismaService } from './prisma.service';
 export class ServiceController {
   constructor(private readonly prisma: PrismaService) {}
   @MessagePattern({ cmd: 'employees.list' })
-  list() { return this.prisma.employee.findMany({ where: { isActive: true }, select: { id: true, employeeNo: true, fullName: true, email: true, department: true, role: true }, orderBy: { fullName: 'asc' } }); }
+  list() { return this.prisma.employee.findMany({ where: { isActive: true }, select: { id: true, employeeNo: true, fullName: true, email: true, department: true }, orderBy: { fullName: 'asc' } }); }
 }
