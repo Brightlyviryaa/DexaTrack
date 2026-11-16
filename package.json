@@ -1,0 +1,15 @@
+{
+  "name": "dexa-track",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace @dexatrack/web",
+    "dev:gateway": "npm run start:dev --workspace @dexatrack/api-gateway",
+    "dev:employees": "npm run start:dev --workspace @dexatrack/employees-service",
+    "dev:attendance": "npm run start:dev --workspace @dexatrack/attendance-service",
+    "db:generate": "npm run prisma:generate --workspace @dexatrack/employees-service && npm run prisma:generate --workspace @dexatrack/attendance-service",
+    "build": "npm run build --workspaces --if-present"
+  }
+}

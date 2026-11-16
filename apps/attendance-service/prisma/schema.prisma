@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client-js"
+  output = "../generated/client"
+}
+
+datasource db {
+  provider = "mysql"
+  url = env("DATABASE_URL")
+}
+
+enum AttendanceStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+model Attendance {
+  id             Int              @id @default(autoincrement())
+  employeeId     Int              @map("employee_id")
+  workDate       DateTime         @map("work_date") @db.Date
+  submittedAt    DateTime         @default(now()) @map("submitted_at")
+  photoUrl       String           @map("photo_url") @db.VarChar(2048)
+  notes          String?          @db.Text
+  status         AttendanceStatus @default(SUBMITTED)
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  @@unique([employeeId, workDate])
+  @@index([workDate, status])
+  @@map("attendances")
+}
+
