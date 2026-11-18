@@ -1,0 +1,24 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DEXATRACK_DB_PASSWORD:?Set DEXATRACK_DB_PASSWORD in .env}
+      MYSQL_ROOT_HOST: '%'
+      TZ: UTC
+    ports:
+      - '127.0.0.1:3306:3306'
+    volumes:
+      - dexatrack_mysql:/var/lib/mysql
+      - ./infra/mysql/init.sql:/docker-entrypoint-initdb.d/01-databases.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h localhost -p"$$MYSQL_ROOT_PASSWORD" --silent']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - '127.0.0.1:${DEXATRACK_SMTP_PORT:-1025}:1025'
+      - '127.0.0.1:${DEXATRACK_MAILPIT_PORT:-8025}:8025'
+volumes:
+  dexatrack_mysql:

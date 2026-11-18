@@ -8,7 +8,9 @@ describe('gateway HTTP client', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'ok' })));
     vi.stubGlobal('fetch', fetchMock);
     await expect(request('/health')).resolves.toEqual({ status: 'ok' });
-    expect(fetchMock).toHaveBeenCalledWith('/api/health', undefined);
+    expect(fetchMock).toHaveBeenCalledWith('/api/health', expect.objectContaining({ credentials: 'include' }));
+    const headers = fetchMock.mock.calls[0][1].headers as Headers;
+    expect(headers.get('X-DexaTrack-Request')).toBe('1');
   });
 
   it('exposes unsuccessful HTTP status as HttpError', async () => {

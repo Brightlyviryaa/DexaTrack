@@ -1,44 +1,41 @@
-import { useState } from 'react';
+import { DashboardSidebar } from './DashboardSidebar';
+import { DashboardContent } from './DashboardContent';
+import { MobileNavigation } from './MobileNavigation';
+import { Link, NavLink } from 'react-router';
+import type { User } from '../../auth';
+import { Employees, type Employee } from '../../employees';
 import { Icon } from './Icon';
-import { metrics } from '../data/demo';
-import { AttendanceCard } from './AttendanceCard';
-import { ActivityCard } from './ActivityCard';
-import { CalendarCard } from './CalendarCard';
-import { OverviewCard } from './OverviewCard';
-import { TasksCard } from './TasksCard';
+import { Attendance } from '../../attendance';
+import { Requests } from '../../requests';
+import { WorkSettings, WorkforceStatus, type Workforce } from '../../workforce';
+import { Reports } from '../../reports';
 
-export function Dashboard({ onLogout }: { onLogout: () => void }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const date = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+export function Dashboard({ onLogout, employees, requests, page, user }: { onLogout: () => void; employees: Employee[]; requests: Workforce; user: User; page: 'dashboard' | 'employees' | 'attendance' | 'requests' | 'reports' | 'settings' }) {
+  const date = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+  const title = page === 'dashboard' ? date : page === 'employees' ? 'Daftar karyawan' : page === 'attendance' ? 'Kehadiran' : page === 'requests' ? 'Pengajuan' : page === 'reports' ? 'Laporan' : 'Settings';
+  const workforceUnavailable = requests.isPending || requests.error;
   return (
     <div className="dashboard-shell">
-      <aside className={`dashboard-sidebar ${menuOpen ? 'sidebar-open' : ''}`}>
-        <div className="sidebar-top"><div className="brand"><span>Dexa</span>Track</div><button className="mobile-close" onClick={() => setMenuOpen(false)} aria-label="Tutup menu">×</button></div>
-        <nav aria-label="Navigasi utama" className="sidebar-nav">
-          <p>Operasional</p>
-          <a className="nav-active" href="#dashboard" onClick={() => setMenuOpen(false)} aria-current="page"><Icon name="grid" /> Dashboard</a>
-          <div className="nav-disabled"><Icon name="users" /> Karyawan <small>Segera</small></div>
-          <div className="nav-disabled"><Icon name="calendar" /> Kehadiran <small>Segera</small></div>
-          <div className="nav-disabled"><Icon name="briefcase" /> Pengajuan <small>Segera</small></div>
-          <p>Manajemen</p>
-          <div className="nav-disabled"><Icon name="file" /> Laporan <small>Segera</small></div>
-        </nav>
-        <div className="sidebar-bottom"><div className="sidebar-demo"><span className="demo-dot" /> Data demo</div><button className="logout-button" onClick={onLogout}><Icon name="logout" /> Keluar</button></div>
-      </aside>
-      {menuOpen && <button className="sidebar-backdrop" onClick={() => setMenuOpen(false)} aria-label="Tutup menu" />}
-      <main id="dashboard" className="dashboard-main">
-        <header className="dashboard-header"><div className="header-heading"><button className="mobile-menu" onClick={() => setMenuOpen(true)} aria-label="Buka menu" aria-expanded={menuOpen}><Icon name="menu" /></button><h1>{date}</h1></div><div className="header-right"><span className="demo-badge"><span /> Data demo</span><div className="profile-avatar">AH</div><div className="profile-copy"><strong>Admin HR</strong><small>Administrator</small></div></div></header>
-        <div className="dashboard-content">
-          <section className="metrics" aria-label="Ringkasan kehadiran">{metrics.map((item) => <article className="metric" key={item.label}><div className="metric-icon"><Icon name={item.icon} /></div><div className="metric-body"><p>{item.label}</p><div className="metric-value">{item.value}<span> orang</span></div></div><span className="metric-tag">{item.tag}</span></article>)}</section>
-          <div className="dashboard-grid">
-            <AttendanceCard />
-            <ActivityCard />
-            <CalendarCard />
-            <OverviewCard />
-            <TasksCard />
+      <DashboardSidebar onLogout={onLogout} />
+      <main key={page} className="dashboard-main" id="dashboard">
+        <header className="dashboard-header">
+          <div className="header-heading"><h1 className={page === 'dashboard' ? 'home-title' : undefined}>{page === 'dashboard' ? <><span className="desktop-date">{date}</span><span className="mobile-wordmark">Dexa<span>Track</span></span></> : title}</h1></div>
+          <div className="header-right">
+            <Link className="profile-avatar" to="/account" aria-label="Keamanan akun">{user.profile?.fullName.slice(0, 2).toUpperCase()}</Link><div className="profile-copy"><strong>{user.profile?.fullName}</strong><small>Administrator</small></div>
+            <NavLink className="mobile-settings" to="/settings" aria-label="Settings" title="Settings"><Icon name="settings" /></NavLink>
+            <button className="mobile-logout" onClick={onLogout} aria-label="Keluar" title="Keluar"><Icon name="logout" /></button>
           </div>
+        </header>
+        <div className="dashboard-page">
+          {page === 'dashboard' && <DashboardContent date={date} />}
+          {page === 'employees' && <Employees />}
+          {page === 'attendance' && (workforceUnavailable ? <WorkforceStatus data={requests} /> : <Attendance data={requests} employees={employees} />)}
+          {page === 'requests' && (workforceUnavailable ? <WorkforceStatus data={requests} /> : <Requests data={requests} />)}
+          {page === 'reports' && <Reports />}
+          {page === 'settings' && <WorkSettings data={requests} />}
         </div>
       </main>
+      <MobileNavigation />
     </div>
   );
 }

@@ -1,11 +1,11 @@
 import type { IconName } from '../components/Icon';
 
 export const employees = [
-  { initials: 'AN', name: 'Aditya Nugraha', team: 'Product Design', time: '08:02', status: 'Tepat waktu', color: 'mint' },
-  { initials: 'SP', name: 'Salsabila Putri', team: 'Engineering', time: '08:12', status: 'Tepat waktu', color: 'peach' },
+  { initials: 'AN', name: 'Aditya Nugraha', team: 'Product Design', time: '08:00', status: 'Tepat waktu', color: 'mint' },
+  { initials: 'SP', name: 'Salsabila Putri', team: 'Engineering', time: '07:52', status: 'Tepat waktu', color: 'peach' },
   { initials: 'RP', name: 'Rizky Pratama', team: 'Marketing', time: '08:47', status: 'Terlambat', color: 'lavender' },
-  { initials: 'NA', name: 'Nadia Amelia', team: 'People & Culture', time: '08:05', status: 'Tepat waktu', color: 'blue' },
-  { initials: 'DF', name: 'Dimas Firmansyah', team: 'Engineering', time: '09:06', status: 'Terlambat', color: 'sand' },
+  { initials: 'NA', name: 'Nadia Amelia', team: 'People & Culture', time: '08:05', status: 'Terlambat', color: 'blue' },
+  { initials: 'DF', name: 'Dimas Firmansyah', team: 'Engineering', time: '—', status: 'Belum check-in', color: 'sand' },
 ];
 export const metrics: { icon: IconName; label: string; value: string; detail: string; tag: string }[] = [
   { icon: 'users', label: 'Total karyawan', value: '128', detail: 'Karyawan aktif', tag: 'Tim DexaTrack' },

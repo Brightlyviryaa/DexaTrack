@@ -1,0 +1,214 @@
+.work-settings { max-width: 1080px; }
+
+.work-settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.work-settings-card {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  padding: clamp(18px, 3vw, 26px);
+  border: 1px solid #e5eeea;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 3px 14px #213d300a;
+}
+
+.work-settings-card-heading h2 {
+  margin: 0;
+  color: #263b35;
+  font-family: Manrope, sans-serif;
+  font-size: 17px;
+  font-weight: 750;
+}
+
+.work-settings-card-heading p {
+  margin: 6px 0 0;
+  color: #536a63;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.work-settings-card label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  color: #3d5951;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.work-settings-card input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #dce6e3;
+  border-radius: 9px;
+  background: #f7faf8;
+  color: #19322f;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.work-map-picker { display: grid; gap: 10px; min-width: 0; }
+
+.work-map-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.work-map-toolbar p, .work-map-retry p, .work-map-hint {
+  margin: 0;
+  color: #536a63;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.work-map-toolbar p { font-weight: 650; }
+.work-map-toolbar .work-map-picked { color: #146758; }
+
+.work-map {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #dce6e3;
+  border-radius: 12px;
+}
+
+.work-map-canvas {
+  isolation: isolate;
+  height: clamp(250px, 36vh, 320px);
+}
+
+.work-map-canvas.leaflet-container, .work-map-loading {
+  background: #e7efeb;
+}
+
+.work-map-loading {
+  display: grid;
+  place-items: center;
+  margin: 0;
+  border-radius: 12px;
+  color: #536a63;
+}
+
+.work-map-canvas:focus-visible {
+  outline: 3px solid #0f766e;
+  outline-offset: -3px;
+}
+
+.work-map-canvas .leaflet-control-zoom a { color: #19322f; }
+.work-map-canvas .leaflet-control-attribution { font-size: 11px; }
+
+.work-map-tile-status {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: #fff;
+  color: #536a63;
+  font-size: 12px;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.work-map-pin::before {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #fff;
+  border-radius: 50% 50% 50% 3px;
+  background: #0f766e;
+  box-shadow: 0 2px 5px #19322f55;
+  content: '';
+  transform: rotate(-45deg);
+}
+
+.work-map-pin::after {
+  position: absolute;
+  top: 16px;
+  left: 18px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  content: '';
+}
+
+.work-map-retry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #edf7f3;
+}
+
+.work-settings-gps {
+  color: #146758;
+}
+
+.work-settings-notice {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 9px;
+  background: #edf7f3;
+  color: #345f53;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.work-settings-load-error {
+  margin-bottom: 16px;
+}
+
+.work-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.work-settings-actions button {
+  margin-inline-start: auto;
+}
+
+.work-settings-status, .work-settings-error, .work-settings-load-error p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.work-settings-status { color: #146758; }
+.work-settings-status:empty { position: absolute; }
+.work-settings-error, .work-settings-load-error p { color: #a33e3a; }
+.work-settings-load-error button { margin-top: 8px; }
+.work-settings button:disabled { opacity: .65; cursor: wait; }
+
+@media (max-width: 720px) {
+  .work-settings-grid { grid-template-columns: minmax(0, 1fr); }
+  .work-map-canvas { height: 260px; }
+  .work-map-canvas .leaflet-control-zoom a { width: 40px; height: 40px; line-height: 40px; }
+  .work-settings-actions button { width: 100%; }
+}

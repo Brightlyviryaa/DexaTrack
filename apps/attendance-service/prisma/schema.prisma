@@ -1,11 +1,11 @@
 generator client {
   provider = "prisma-client-js"
-  output = "../generated/client"
+  output   = "../generated/client"
 }
 
 datasource db {
   provider = "mysql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 enum AttendanceStatus {
@@ -14,18 +14,131 @@ enum AttendanceStatus {
   REJECTED
 }
 
+enum AttendanceEventType {
+  CHECK_IN
+  CHECK_OUT
+}
+
+enum RequestType {
+  LEAVE
+  SICK
+  PERMISSION
+  ATTENDANCE_CORRECTION
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model WorkLocation {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.VarChar(150)
+  latitude     Decimal  @db.Decimal(9, 6)
+  longitude    Decimal  @db.Decimal(9, 6)
+  radiusMeters Decimal  @map("radius_meters") @db.Decimal(10, 2)
+  createdAt    DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+  settings     AttendanceSettings[]
+
+  @@map("work_locations")
+}
+
+model AttendanceSettings {
+  id             Int          @id @default(1) @db.TinyInt
+  workLocationId Int          @map("work_location_id")
+  workStartTime  String       @default("08:00") @map("work_start_time") @db.VarChar(5)
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+  workLocation   WorkLocation @relation(fields: [workLocationId], references: [id], onDelete: Restrict)
+
+  @@map("attendance_settings")
+}
+
 model Attendance {
-  id             Int              @id @default(autoincrement())
-  employeeId     Int              @map("employee_id")
-  workDate       DateTime         @map("work_date") @db.Date
-  submittedAt    DateTime         @default(now()) @map("submitted_at")
-  photoUrl       String           @map("photo_url") @db.VarChar(2048)
-  notes          String?          @db.Text
-  status         AttendanceStatus @default(SUBMITTED)
-  createdAt      DateTime         @default(now()) @map("created_at")
+  id          Int              @id @default(autoincrement())
+  employeeId  Int              @map("employee_id")
+  workDate    DateTime         @map("work_date") @db.Date
+  // Legacy fields remain available until existing records have a migration plan.
+  submittedAt DateTime         @default(now()) @map("submitted_at")
+  photoUrl    String?          @map("photo_url") @db.VarChar(2048)
+  notes       String?          @db.Text
+  status      AttendanceStatus @default(SUBMITTED)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  checkInAt   DateTime?        @map("check_in_at") @db.DateTime(3)
+  checkOutAt  DateTime?        @map("check_out_at") @db.DateTime(3)
+  progress    Json?            @map("progress_json")
+  workStartTime String           @default("08:00") @map("work_start_time") @db.VarChar(5)
+  version     Int              @default(1)
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+  evidence    AttendanceEvidence[]
+  corrections AttendanceCorrection[]
 
   @@unique([employeeId, workDate])
   @@index([workDate, status])
+  @@index([workDate])
   @@map("attendances")
 }
 
+model AttendanceEvidence {
+  id                   Int                 @id @default(autoincrement())
+  attendanceId         Int                 @map("attendance_id")
+  eventType            AttendanceEventType @map("event_type")
+  photoKey             String              @map("photo_key") @db.VarChar(512)
+  capturedAt           DateTime            @map("captured_at") @db.DateTime(3)
+  submittedAt          DateTime            @map("submitted_at") @db.DateTime(3)
+  positionAt           DateTime            @map("position_at") @db.DateTime(3)
+  latitude             Decimal             @db.Decimal(9, 6)
+  longitude            Decimal             @db.Decimal(9, 6)
+  accuracyMeters       Decimal             @map("accuracy_meters") @db.Decimal(10, 2)
+  distanceMeters       Decimal             @map("distance_meters") @db.Decimal(10, 2)
+  locationName         String              @map("location_name") @db.VarChar(150)
+  locationLatitude     Decimal             @map("location_latitude") @db.Decimal(9, 6)
+  locationLongitude    Decimal             @map("location_longitude") @db.Decimal(9, 6)
+  locationRadiusMeters Decimal             @map("location_radius_meters") @db.Decimal(10, 2)
+  attendance           Attendance          @relation(fields: [attendanceId], references: [id], onDelete: Restrict)
+
+  @@unique([attendanceId, eventType])
+  @@map("attendance_evidence")
+}
+
+model Request {
+  id                 Int                   @id @default(autoincrement())
+  employeeId         Int                   @map("employee_id")
+  type               RequestType
+  startDate          DateTime              @map("start_date") @db.Date
+  endDate            DateTime              @map("end_date") @db.Date
+  reason             String                @db.VarChar(2000)
+  status             RequestStatus         @default(PENDING)
+  proposedCheckInAt  DateTime?             @map("proposed_check_in_at") @db.DateTime(3)
+  proposedCheckOutAt DateTime?             @map("proposed_check_out_at") @db.DateTime(3)
+  baseVersion        Int?                  @map("base_version")
+  reviewerAccountId  Int?                  @map("reviewer_account_id")
+  decidedAt          DateTime?             @map("decided_at") @db.DateTime(3)
+  createdAt          DateTime              @default(now()) @map("created_at") @db.DateTime(3)
+  updatedAt          DateTime              @default(now()) @updatedAt @map("updated_at") @db.DateTime(3)
+  correction         AttendanceCorrection?
+
+  // The pending-correction generated column and unique index live in migration SQL.
+  @@index([employeeId, startDate])
+  @@index([status, createdAt])
+  @@map("requests")
+}
+
+model AttendanceCorrection {
+  id               Int        @id @default(autoincrement())
+  attendanceId     Int        @map("attendance_id")
+  requestId        Int        @unique @map("request_id")
+  beforeCheckInAt  DateTime?  @map("before_check_in_at") @db.DateTime(3)
+  beforeCheckOutAt DateTime?  @map("before_check_out_at") @db.DateTime(3)
+  afterCheckInAt   DateTime   @map("after_check_in_at") @db.DateTime(3)
+  afterCheckOutAt  DateTime?  @map("after_check_out_at") @db.DateTime(3)
+  reason           String     @db.VarChar(2000)
+  reviewerAccountId Int       @map("reviewer_account_id")
+  decidedAt        DateTime   @map("decided_at") @db.DateTime(3)
+  attendance       Attendance @relation(fields: [attendanceId], references: [id], onDelete: Restrict)
+  request          Request    @relation(fields: [requestId], references: [id], onDelete: Restrict)
+
+  @@index([attendanceId, decidedAt])
+  @@map("attendance_corrections")
+}

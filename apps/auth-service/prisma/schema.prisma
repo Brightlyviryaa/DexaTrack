@@ -15,13 +15,66 @@ enum AccountRole {
 
 model Account {
   id           Int         @id @default(autoincrement())
-  employeeId   Int         @unique @map("employee_id")
+  employeeId   Int?        @unique @map("employee_id")
   email        String      @unique @db.VarChar(191)
-  passwordHash String      @map("password_hash") @db.VarChar(255)
+  passwordHash String?     @map("password_hash") @db.VarChar(255)
   role         AccountRole @default(EMPLOYEE)
   isActive     Boolean     @default(true) @map("is_active")
+  approval     ApprovalStatus @default(PENDING)
+  syncing      Boolean     @default(false)
+  archivedAt   DateTime?   @map("archived_at")
+  sessions     Session[]
+  tokens       EmailToken[]
+  operation    UserOperation?
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
 
   @@map("accounts")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TokenPurpose {
+  ACTIVATE
+  RESET
+}
+
+model Session {
+  tokenHash String @id @map("token_hash") @db.Char(64)
+  accountId Int @map("account_id")
+  expiresAt DateTime @map("expires_at")
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  @@index([accountId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model EmailToken {
+  tokenHash String @id @map("token_hash") @db.Char(64)
+  accountId Int @map("account_id")
+  purpose TokenPurpose
+  expiresAt DateTime @map("expires_at")
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  @@index([accountId])
+  @@map("email_tokens")
+}
+
+// Serializes identity mutations, including the last-admin invariant.
+model IdentityLock {
+  id Int @id
+  @@map("identity_lock")
+}
+
+// One durable, retryable profile synchronization per account.
+model UserOperation {
+  accountId Int @id @map("account_id")
+  requestId String @unique @map("request_id") @db.VarChar(36)
+  profile Json
+  completedAt DateTime? @map("completed_at")
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  @@map("user_operations")
 }

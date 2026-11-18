@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
+import { useLogin } from '../features/auth';
 import type { FormEvent } from 'react';
 
 function EyeIcon({ visible }: { visible: boolean }) {
@@ -15,12 +17,17 @@ function Wordmark({ light = false }: { light?: boolean }) {
   return <div className={`brand${light ? ' brand-light' : ''}`}><span>Dexa</span>Track</div>;
 }
 
-export function LoginPage({ onLogin }: { onLogin: () => void }) {
+export function LoginPage() {
+  const login = useLogin();
+  const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onLogin();
+    const data = Object.fromEntries(new FormData(event.currentTarget));
+    setBusy(true); setError('');
+    try { await login(data); }
+    catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
 
   return (
@@ -46,6 +53,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
             <p className="intro">Masuk untuk memulai hari kerjamu bersama DexaTrack.</p>
 
             <form onSubmit={handleSubmit}>
+
               <div className="field">
                 <label htmlFor="email">Email</label>
                 <input id="email" name="email" type="email" autoComplete="username" placeholder="nama@perusahaan.com" required maxLength={191} />
@@ -57,8 +65,10 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
                   <button className="visibility-button" type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'} aria-pressed={showPassword}><EyeIcon visible={showPassword} /></button>
                 </div>
               </div>
-              <button className="submit-button" type="submit"><span>Masuk</span><span className="button-arrow" aria-hidden="true">→</span></button>
+              <button className="submit-button" type="submit" disabled={busy}><span>{busy ? 'Memproses…' : 'Masuk'}</span><span className="button-arrow" aria-hidden="true">→</span></button>
+              {error && <p className="employee-error" role="alert">{error}</p>}
             </form>
+            <div className="auth-links"><Link to="/forgot-password">Lupa password?</Link><Link to="/register">Daftar akun</Link></div>
             <div className="help-copy">Mengalami kendala saat masuk? <span>Hubungi admin HR kamu.</span></div>
           </div>
           <div className="form-footer"><span>© {new Date().getFullYear()} DexaTrack</span><span>Track presence. Verify work.</span></div>

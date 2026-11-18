@@ -1,4 +1,4 @@
-export type IconName = 'grid' | 'users' | 'calendar' | 'clock' | 'check' | 'briefcase' | 'arrow' | 'logout' | 'menu' | 'activity' | 'file';
+export type IconName = 'grid' | 'users' | 'calendar' | 'clock' | 'check' | 'briefcase' | 'arrow' | 'logout' | 'activity' | 'file' | 'settings';
 
 export function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, React.ReactNode> = {
@@ -10,9 +10,9 @@ export function Icon({ name }: { name: IconName }) {
     briefcase: <><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18" /></>,
     arrow: <path d="M5 12h14m-5-5 5 5-5 5" />,
     logout: <><path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5M14 8l4 4-4 4M8 12h10" /></>,
-    menu: <path d="M4 7h16M4 12h16M4 17h16" />,
     activity: <path d="M3 12h4l3-7 4 14 3-7h4" />,
     file: <><path d="M6 3h8l4 4v14H6zM14 3v5h4M9 12h6M9 16h6" /></>,
+    settings: <><circle cx="12" cy="12" r="3" /><path d="M10 2h4l.7 2.5 2 .9L19 4l2 3.5-1.8 1.9.2 2.3 2.6 1v4l-2.7.6-1.4 1.6.1 2.6-3.8 1-1.3-2.1h-1.8l-1.3 2.1-3.8-1 .1-2.6-1.4-1.6L2 16.7v-4l2.6-1 .2-2.3L3 7.5 5 4l2.3 1.4 2-.9L10 2Z" transform="translate(0 .4) scale(1 .94)" /></>,
   };
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
