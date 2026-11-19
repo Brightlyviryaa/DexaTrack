@@ -14,7 +14,8 @@
 <p align="center">
   <a href="#tampilan-aplikasi">Tampilan aplikasi</a> ·
   <a href="#menjalankan-secara-lokal">Instalasi lokal</a> ·
-  <a href="docs/README.md">Dokumentasi per menu</a>
+  <a href="docs/README.md">Dokumentasi per menu</a> ·
+  <a href="#kustomisasi-untuk-bisnis">Kustomisasi untuk bisnis</a>
 </p>
 
 DexaTrack membantu karyawan melakukan check-in dan check-out dengan selfie dan GPS, mencatat progres kerja, serta mengajukan cuti, sakit, izin, atau koreksi absensi. Admin HR dapat memantau kehadiran harian, meninjau pengajuan, mengelola akun, dan melihat rekap bulanan. Lokasi, radius absensi, dan jam masuk WIB dapat diatur dari aplikasi.
@@ -95,4 +96,10 @@ Gateway tersedia di [localhost:3000/api](http://localhost:3000/api) dan email pe
 
 ## Lisensi
 
-DexaTrack menggunakan lisensi [MIT](LICENSE).
+DexaTrack menggunakan lisensi MIT. Siapa pun boleh melakukan fork, memodifikasi, dan menggunakan DexaTrack untuk kebutuhan bisnis, termasuk penggunaan komersial. Sertakan pemberitahuan hak cipta dan teks lisensi pada salinan atau bagian substansial dari kode. [Baca lisensi MIT](LICENSE).
+
+## Kustomisasi untuk bisnis
+
+Butuh alur absensi, pengajuan, atau laporan yang sesuai dengan proses kerja di bisnis Anda? Kami bisa membantu menyesuaikan DexaTrack dengan kebutuhan tim Anda.
+
+Ceritakan kebutuhan Anda kepada kami melalui [WhatsApp +62 81513335320](https://wa.me/6281513335320) atau [virya.brightly@gmail.com](mailto:virya.brightly@gmail.com).
