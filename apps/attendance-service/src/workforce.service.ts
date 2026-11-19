@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
-import { Prisma, RequestType } from '../generated/client';
+import { Prisma, RequestType, type Request as StoredRequest } from '../generated/client';
 import { PrismaService } from './prisma.service';
 import { PhotoStore } from './photo-store';
 import { countAttendanceDays, reportRange } from './attendance-report';
@@ -12,6 +12,26 @@ export const requestTypes = { Cuti: 'LEAVE', Sakit: 'SICK', Izin: 'PERMISSION', 
 const statuses = { PENDING: 'Menunggu', APPROVED: 'Disetujui', REJECTED: 'Ditolak' };
 const iso = (value: Date | null) => value?.toISOString() ?? null;
 const time = (value: Date | null) => value ? new Date(value.getTime() + 7 * 3600000).toISOString().slice(11, 16) : undefined;
+function requestView(request: StoredRequest) {
+  const start = request.startDate.toISOString().slice(0, 10);
+  const end = request.endDate.toISOString().slice(0, 10);
+  const type = (Object.keys(requestTypes) as (keyof typeof requestTypes)[]).find(key => requestTypes[key] === request.type);
+  return {
+    id: request.id,
+    employeeId: request.employeeId,
+    type,
+    start,
+    end,
+    date: `${start} – ${end}`,
+    reason: request.reason,
+    status: statuses[request.status],
+    checkIn: time(request.proposedCheckInAt),
+    checkOut: time(request.proposedCheckOutAt),
+    baseVersion: request.baseVersion ?? undefined,
+    decidedAt: iso(request.decidedAt) ?? undefined,
+    reviewer: request.reviewerAccountId ? `HR #${request.reviewerAccountId}` : undefined,
+  };
+}
 type RecordWithEvidence = Prisma.AttendanceGetPayload<{ include: typeof related }>;
 function recordView(r: RecordWithEvidence) {
   const proof = (kind: 'CHECK_IN' | 'CHECK_OUT') => {
@@ -59,15 +79,33 @@ export class WorkforceService {
       return countAttendanceDays(checkIns, requests, range);
     });
   }
+  async attendanceHistory(actor: Actor, period: unknown) {
+    actorCheck(actor);
+    if (actor.role !== 'EMPLOYEE') fail('Akses khusus karyawan.', 403);
+    const firstDay = typeof period === 'string' ? `${period}-01` : '';
+    if (!validDate(firstDay)) fail('Periode histori harus berupa bulan yang valid (YYYY-MM).');
+
+    const startDate = dateValue(firstDay);
+    const endDate = dateValue(firstDay);
+    endDate.setUTCMonth(endDate.getUTCMonth() + 1, 0);
+    return this.transaction(async tx => {
+      const records = await tx.attendance.findMany({
+        where: { employeeId: actor.employeeId, workDate: { gte: startDate, lte: endDate } },
+        include: related,
+        orderBy: { workDate: 'desc' },
+      });
+      return records.map(recordView);
+    });
+  }
   async snapshot(actor: Actor) {
     actorCheck(actor);
     return this.transaction(async tx => {
       const where = actor.role === 'HR_ADMIN' ? {} : { employeeId: actor.employeeId };
       const records = await tx.attendance.findMany({ where, include: related, orderBy: { workDate: 'desc' } });
-      const requests = await tx.request.findMany({ where, orderBy: { createdAt: 'desc' } });
+      const requests = await tx.request.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
       const settings = await tx.attendanceSettings.findUnique({ where: { id: 1 }, include: { workLocation: true } });
       const location = settings?.workLocation;
-      return { records: records.map(recordView), requests: requests.map(r => ({ id: r.id, employeeId: r.employeeId, type: Object.keys(requestTypes).find(k => requestTypes[k as keyof typeof requestTypes] === r.type), start: r.startDate.toISOString().slice(0, 10), end: r.endDate.toISOString().slice(0, 10), date: `${r.startDate.toISOString().slice(0, 10)} – ${r.endDate.toISOString().slice(0, 10)}`, reason: r.reason, status: statuses[r.status], checkIn: time(r.proposedCheckInAt), checkOut: time(r.proposedCheckOutAt), baseVersion: r.baseVersion ?? undefined, decidedAt: iso(r.decidedAt) ?? undefined, reviewer: r.reviewerAccountId ? `HR #${r.reviewerAccountId}` : undefined })), location: location ? { name: location.name, latitude: Number(location.latitude), longitude: Number(location.longitude), radius: Number(location.radiusMeters) } : null, workStartTime: settings?.workStartTime ?? '08:00', today: workDate() };
+      return { records: records.map(recordView), requests: requests.map(requestView), location: location ? { name: location.name, latitude: Number(location.latitude), longitude: Number(location.longitude), radius: Number(location.radiusMeters) } : null, workStartTime: settings?.workStartTime ?? '08:00', today: workDate() };
     });
   }
   async submit(actor: Actor, data: Submission) {
@@ -113,7 +151,7 @@ export class WorkforceService {
   }
   async createRequest(actor: Actor, data: { type: string; start: string; end: string; reason: string; checkIn?: string; checkOut?: string; baseVersion?: number }) {
     actorCheck(actor);
-    if (!data || !Object.hasOwn(requestTypes, data.type) || !validDate(data.start) || !validDate(data.end) || data.end < data.start || typeof data.reason !== 'string' || !data.reason.trim() || data.reason.length > 2000) fail('Lengkapi jenis, tanggal, dan alasan (maksimal 2.000 karakter).');
+    if (!data || typeof data.type !== 'string' || !Object.hasOwn(requestTypes, data.type) || !validDate(data.start) || !validDate(data.end) || data.end < data.start || typeof data.reason !== 'string' || !data.reason.trim() || data.reason.length > 2000) fail('Lengkapi jenis, tanggal, dan alasan (maksimal 2.000 karakter).');
     const type: RequestType = requestTypes[data.type as keyof typeof requestTypes], now = new Date();
     return this.transaction(async tx => {
       let correction = {};
@@ -121,18 +159,18 @@ export class WorkforceService {
         if (data.start !== data.end || data.start > workDate(now) || (!data.checkIn && !data.checkOut) || [data.checkIn, data.checkOut].some(t => t !== undefined && t !== '' && !validTime(t)) || !Number.isSafeInteger(data.baseVersion) || data.baseVersion! < 0) fail('Tanggal, waktu, atau versi koreksi tidak valid.');
         const record = await tx.attendance.findUnique({ where: { employeeId_workDate: { employeeId: actor.employeeId, workDate: dateValue(data.start) } } });
         if ((record?.version ?? 0) !== data.baseVersion) fail('Absensi berubah. Muat ulang sebelum mengajukan koreksi.', 409);
-        const checkIn = data.checkIn ? new Date(`${data.start}T${data.checkIn}:00+07:00`) : record?.checkInAt ?? null;
-        const checkOut = data.checkOut ? new Date(`${data.start}T${data.checkOut}:00+07:00`) : record?.checkOutAt ?? null;
-        validateTimes(checkIn, checkOut, now);
+        const checkIn = data.checkIn ? new Date(`${data.start}T${data.checkIn}:00+07:00`) : null;
+        const checkOut = data.checkOut ? new Date(`${data.start}T${data.checkOut}:00+07:00`) : null;
+        validateTimes(checkIn ?? record?.checkInAt ?? null, checkOut ?? record?.checkOutAt ?? null, now);
         correction = { proposedCheckInAt: checkIn, proposedCheckOutAt: checkOut, baseVersion: data.baseVersion };
-      } else if (data.checkIn || data.checkOut || data.baseVersion !== undefined) fail('Waktu koreksi hanya untuk koreksi absensi.');
-      await tx.request.create({ data: { employeeId: actor.employeeId, type, startDate: dateValue(data.start), endDate: dateValue(data.end), reason: data.reason.trim(), ...correction } });
-      return { message: 'Pengajuan tersimpan.' };
+      } else if (data.checkIn !== undefined || data.checkOut !== undefined || data.baseVersion !== undefined) fail('Waktu koreksi hanya untuk koreksi absensi.');
+      const request = await tx.request.create({ data: { employeeId: actor.employeeId, type, startDate: dateValue(data.start), endDate: dateValue(data.end), reason: data.reason.trim(), ...correction } });
+      return { message: 'Pengajuan tersimpan.', request: requestView(request) };
     });
   }
   async decide(actor: Actor, data: { id: number; status: string }) {
     actorCheck(actor, true);
-    if (!data || !Number.isSafeInteger(data.id) || data.id < 1 || !['Disetujui', 'Ditolak'].includes(data.status)) fail('Keputusan tidak valid.');
+    if (!data || !Number.isInteger(data.id) || data.id < 1 || data.id > 2147483647 || !['Disetujui', 'Ditolak'].includes(data.status)) fail('Keputusan tidak valid.');
     return this.transaction(async tx => {
       const request = await tx.request.findUnique({ where: { id: data.id } });
       if (!request) fail('Pengajuan tidak ditemukan.', 404);
@@ -142,7 +180,8 @@ export class WorkforceService {
         const where = { employeeId_workDate: { employeeId: request.employeeId, workDate: request.startDate } };
         let record = await tx.attendance.findUnique({ where });
         if ((record?.version ?? 0) !== request.baseVersion) fail('Absensi berubah sejak pengajuan. Tolak dan minta karyawan mengajukan ulang.', 409);
-        const checkIn = request.proposedCheckInAt, checkOut = request.proposedCheckOutAt;
+        const checkIn = request.proposedCheckInAt ?? record?.checkInAt ?? null;
+        const checkOut = request.proposedCheckOutAt ?? record?.checkOutAt ?? null;
         validateTimes(checkIn, checkOut, now);
         const before = { beforeCheckInAt: record?.checkInAt ?? null, beforeCheckOutAt: record?.checkOutAt ?? null };
         if (record) {
@@ -154,9 +193,10 @@ export class WorkforceService {
         }
         await tx.attendanceCorrection.create({ data: { attendanceId: record.id, requestId: request.id, ...before, afterCheckInAt: checkIn!, afterCheckOutAt: checkOut, reason: request.reason, reviewerAccountId: actor.accountId, decidedAt: now } });
       }
-      const changed = await tx.request.updateMany({ where: { id: request.id, status: 'PENDING' }, data: { status: data.status === 'Disetujui' ? 'APPROVED' : 'REJECTED', decidedAt: now, reviewerAccountId: actor.accountId } });
+      const review = { status: data.status === 'Disetujui' ? 'APPROVED' as const : 'REJECTED' as const, decidedAt: now, reviewerAccountId: actor.accountId };
+      const changed = await tx.request.updateMany({ where: { id: request.id, status: 'PENDING' }, data: review });
       if (changed.count !== 1) fail('Pengajuan sudah diproses.', 409);
-      return { message: 'Keputusan tersimpan.' };
+      return { message: 'Keputusan tersimpan.', request: requestView({ ...request, ...review }) };
     });
   }
   async photo(actor: Actor, id: number) {

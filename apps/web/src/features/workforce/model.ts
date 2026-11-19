@@ -9,7 +9,7 @@ export const requestTypes = ['Cuti', 'Sakit', 'Izin', 'Koreksi absensi'] as cons
 export type RequestType = typeof requestTypes[number];
 export type RequestStatus = 'Menunggu' | 'Disetujui' | 'Ditolak';
 export type RequestItem = { id: number; employeeId: number; name: string; department: string; type: RequestType; date: string; start: string; end: string; reason: string; status: RequestStatus; checkIn?: string; checkOut?: string; baseVersion?: number; decidedAt?: string; reviewer?: string };
-export type RequestInput = Pick<RequestItem, 'employeeId' | 'name' | 'department' | 'type' | 'start' | 'end' | 'reason' | 'checkIn' | 'checkOut'>;
+export type RequestInput = Pick<RequestItem, 'type' | 'start' | 'end' | 'reason' | 'checkIn' | 'checkOut'>;
 export type WorkforceState = { records: AttendanceRecord[]; requests: RequestItem[]; location: WorkLocation | null };
 
 export function workDate(date = new Date()) {

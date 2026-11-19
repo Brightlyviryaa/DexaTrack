@@ -1,6 +1,6 @@
 import { DashboardSidebar } from './DashboardSidebar';
 import { DashboardContent } from './DashboardContent';
-import { MobileNavigation } from './MobileNavigation';
+import { MobileNavigation } from '../../../shared/ui/MobileNavigation';
 import { Link, NavLink } from 'react-router';
 import type { User } from '../../auth';
 import { Employees, type Employee } from '../../employees';
@@ -9,6 +9,14 @@ import { Attendance } from '../../attendance';
 import { Requests } from '../../requests';
 import { WorkSettings, WorkforceStatus, type Workforce } from '../../workforce';
 import { Reports } from '../../reports';
+
+const tabs = [
+  { to: '/dashboard', label: 'Beranda', icon: <Icon name="grid" /> },
+  { to: '/karyawan', label: 'Tim', icon: <Icon name="users" /> },
+  { to: '/kehadiran', label: 'Absensi', icon: <Icon name="calendar" /> },
+  { to: '/pengajuan', label: 'Pengajuan', icon: <Icon name="briefcase" /> },
+  { to: '/laporan', label: 'Laporan', icon: <Icon name="file" /> },
+];
 
 export function Dashboard({ onLogout, employees, requests, page, user }: { onLogout: () => void; employees: Employee[]; requests: Workforce; user: User; page: 'dashboard' | 'employees' | 'attendance' | 'requests' | 'reports' | 'settings' }) {
   const date = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
@@ -30,12 +38,15 @@ export function Dashboard({ onLogout, employees, requests, page, user }: { onLog
           {page === 'dashboard' && <DashboardContent date={date} />}
           {page === 'employees' && <Employees />}
           {page === 'attendance' && (workforceUnavailable ? <WorkforceStatus data={requests} /> : <Attendance data={requests} employees={employees} />)}
-          {page === 'requests' && (workforceUnavailable ? <WorkforceStatus data={requests} /> : <Requests data={requests} />)}
+          {page === 'requests' && <>
+            {(!requests.hasSnapshot || requests.error) && <WorkforceStatus data={requests} />}
+            {requests.hasSnapshot && <Requests data={requests} />}
+          </>}
           {page === 'reports' && <Reports />}
           {page === 'settings' && <WorkSettings data={requests} />}
         </div>
       </main>
-      <MobileNavigation />
+      <MobileNavigation tabs={tabs} label="Navigasi mobile" variant="hr" />
     </div>
   );
 }

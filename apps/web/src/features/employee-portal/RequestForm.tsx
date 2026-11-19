@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import type { Employee } from '../employees';
 import { requestTypes, workDate, type RequestType, type Workforce } from '../workforce';
 import { Dialog } from '../../shared/ui/Dialog';
@@ -11,13 +11,18 @@ export function RequestForm({ employee, data, onClose, onSuccess }: { employee: 
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [error, setError] = useState('');
+  const submitting = useRef(false);
   const override = type === 'Koreksi absensi';
   async function submit(e: FormEvent) {
     e.preventDefault();
-    try { await data.addRequest({ employeeId: employee.id, name: employee.fullName, department: employee.department, type, start, end: override ? start : end, reason, ...(override ? { checkIn, checkOut } : {}) }); onSuccess(); }
+    if (submitting.current || data.isSaving) return;
+    submitting.current = true;
+    setError('');
+    try { await data.addRequest({ type, start, end: override ? start : end, reason, ...(override ? { checkIn, checkOut } : {}) }, employee.id); onSuccess(); }
     catch (e) { setError((e as Error).message); }
+    finally { submitting.current = false; }
   }
-  return <Dialog title="Buat pengajuan" onClose={onClose}>
+  return <Dialog title="Buat pengajuan" closeDisabled={data.isSaving} onClose={() => { if (!submitting.current) onClose(); }}>
     <p className="portal-muted">Pengajuanmu akan ditinjau oleh tim HR.</p>
     <form className="portal-form" onSubmit={submit}>
       <label>Jenis pengajuan<select value={type} onChange={e => { setType(e.target.value as RequestType); setError(''); }}>{requestTypes.map(t => <option key={t} value={t}>{t === 'Koreksi absensi' ? 'Override / Koreksi absensi' : t}</option>)}</select></label>

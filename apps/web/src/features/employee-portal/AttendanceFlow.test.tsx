@@ -11,7 +11,7 @@ beforeAll(() => {
   HTMLDialogElement.prototype.close = function () { this.removeAttribute('open'); };
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
-function Harness() { const data = useWorkforce(); return <AttendanceFlow kind="in" employeeId={1} data={data} onClose={() => {}} onSuccess={() => {}} />; }
+function Harness() { const data = useWorkforce(); return <AttendanceFlow kind="in" employeeId={1} data={data} needsStatusCheck={false} onStatusCheckChange={() => {}} onClose={() => {}} onSuccess={() => {}} />; }
 function fakeCamera() {
   const stop = vi.fn();
   const media = { getTracks: () => [{ stop }] } as unknown as MediaStream;
@@ -43,6 +43,11 @@ describe('selfie capture', () => {
     expect(stop).toHaveBeenCalledOnce();
     await user.click(screen.getByRole('button', { name: 'Ambil ulang' }));
     expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(2);
+    expect(video.srcObject).toBeTruthy();
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(2);
+    fireEvent.loadedData(video);
+    await user.click(screen.getByRole('button', { name: 'Ambil selfie' }));
+    expect(screen.getByAltText('Preview selfie absensi')).toBeTruthy();
     unmount(); expect(stop).toHaveBeenCalledTimes(2);
   });
   it('stops a late camera grant after the flow was closed', async () => {

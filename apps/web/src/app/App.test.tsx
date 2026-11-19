@@ -26,6 +26,7 @@ function mockAPI({ failFirstSettingsSave = false }: { failFirstSettingsSave?: bo
     if (path === '/api/auth/me') return unavailable ? json({ message: 'Service unavailable' }, 503) : session ? json(session) : json({ message: 'Silakan masuk kembali.' }, 401);
     if (path === '/api/auth/login') { const data = JSON.parse(init?.body as string); if (data.password === 'bad') return json({ message: 'Email atau password salah.' }, 401); session = data.email === 'worker@example.com' ? worker : hr; return json({ message: 'Masuk' }); }
     if (path === '/api/auth/logout') { session = null; return json({ message: 'Keluar' }); }
+    if (path.startsWith('/api/attendance/history?')) return json([]);
     if (path === '/api/workforce') {
       const { workStartTime, ...location } = settings ?? { workStartTime: '08:00' };
       return json({ records: [], requests: [], location: settings ? location : null, workStartTime, today: '2026-11-17', employees: accounts.filter(u => u.profile).map(u => u.profile) });
@@ -89,6 +90,35 @@ describe('authenticated application', () => {
     expect(screen.queryByText('Data contoh')).toBeNull();
     expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
   });
+  it('keeps the employee navigation mounted from History to Profile and exposes account actions', async () => {
+    const api = mockAPI();
+    session = worker;
+    const user = userEvent.setup();
+    app('/employee/histori');
+
+    const navigation = await screen.findByRole('navigation', { name: 'Navigasi karyawan' });
+    const tabs = within(navigation);
+    expect(tabs.getAllByRole('link').map(link => link.textContent)).toEqual(['Beranda', 'Histori', 'Pengajuan', 'Profil']);
+    expect(tabs.getByRole('link', { current: 'page' }).textContent).toBe('Histori');
+    expect(api.mock.calls.some(([path]) => path === '/api/workforce')).toBe(false);
+    await user.click(tabs.getByRole('link', { name: 'Profil' }));
+    await screen.findByRole('heading', { name: 'Profil karyawan' });
+    expect(screen.getByRole('navigation', { name: 'Navigasi karyawan' })).toBe(navigation);
+    expect(tabs.getByRole('link', { current: 'page' }).textContent).toBe('Profil');
+    expect(screen.getByText(worker.email)).toBeTruthy();
+    expect(screen.getByText(worker.profile!.employeeNo)).toBeTruthy();
+    expect(screen.getByText('Belum ditetapkan')).toBeTruthy();
+
+    await user.click(screen.getByRole('link', { name: 'Ubah password' }));
+    expect(await screen.findByLabelText('Password lama')).toBeTruthy();
+    expect(screen.getByTestId('location').textContent).toBe('/account');
+    await user.click(screen.getByRole('link', { name: 'Kembali' }));
+    await user.click(await screen.findByRole('link', { name: 'Profil' }));
+    await user.click(await screen.findByRole('button', { name: 'Keluar' }));
+    await screen.findByRole('button', { name: 'Masuk' });
+    expect(api.mock.calls.some(([path, init]) => path === '/api/auth/logout' && init?.method === 'POST')).toBe(true);
+    expect(session).toBeNull();
+  });
   it('opens Settings from Kehadiran, retries a failed save, and shows saved values after reload', async () => {
     const api = mockAPI({ failFirstSettingsSave: true });
     session = hr;
@@ -97,9 +127,13 @@ describe('authenticated application', () => {
     await screen.findByText('08:00 WIB');
     expect(screen.queryByRole('button', { name: 'Atur lokasi kerja' })).toBeNull();
     const nav = within(screen.getByRole('navigation', { name: 'Navigasi utama' }));
+    const mobileNav = screen.getByRole('navigation', { name: 'Navigasi mobile' });
+    expect(within(mobileNav).getByRole('link', { current: 'page' }).textContent).toBe('Absensi');
     await user.click(nav.getByRole('link', { name: 'Settings' }));
     expect(screen.getByTestId('location').textContent).toBe('/settings');
     expect(nav.getByRole('link', { name: 'Settings' }).getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('navigation', { name: 'Navigasi mobile' })).toBe(mobileNav);
+    expect(within(mobileNav).queryByRole('link', { current: 'page' })).toBeNull();
     expect(await screen.findByText('Pilih titik lokasi')).toBeTruthy();
     const name = screen.getByLabelText('Nama lokasi') as HTMLInputElement;
     const hours = screen.getByLabelText('Jam masuk (WIB)') as HTMLInputElement;

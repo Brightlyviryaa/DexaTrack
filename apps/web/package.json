@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "lint": "eslint src",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e:attendance": "node --test e2e/attendance.e2e.cjs",
+    "test:e2e:requests": "node --test e2e/requests.e2e.cjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.107.1",

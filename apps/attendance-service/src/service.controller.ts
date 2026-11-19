@@ -10,6 +10,7 @@ export class ServiceController {
   execute({ actor, action, data }: { actor: Actor; action: string; data: any }) {
     switch (action) {
       case 'snapshot': return this.workforce.snapshot(actor);
+      case 'attendanceHistory': return this.workforce.attendanceHistory(actor, data?.period);
       case 'attendanceReport': return this.workforce.attendanceReport(actor, data?.period);
       case 'submit': return this.workforce.submit(actor, data);
       case 'request': return this.workforce.createRequest(actor, data);

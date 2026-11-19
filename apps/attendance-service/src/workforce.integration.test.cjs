@@ -4,7 +4,7 @@ const { readdir, writeFile, rm } = require('node:fs/promises');
 const { join } = require('node:path');
 const sharp = require('sharp');
 const { startRuntime } = require('./workforce-test-runtime.cjs');
-const { workDate } = require('../dist/domain');
+const { dateValue, workDate } = require('../dist/domain');
 
 test('workforce persists through real MySQL, sessions, TCP and HTTP', {skip:process.env.DEXATRACK_INTEGRATION!=='1',timeout:300000}, async t => {
   const r=await startRuntime();const {api,dbs,hrCookie,workers}=r;const [worker,other]=workers;
@@ -146,10 +146,96 @@ test('workforce persists through real MySQL, sessions, TCP and HTTP', {skip:proc
         globalThis.Date = realDate;
       }
     });
-    await t.test('attendance outage returns errors for dashboard and report',async()=>{
+    await t.test('employee history reads only the selected month and signed-in employee', async () => {
+      const path = '/attendance/history';
+      const february = `${path}?period=2020-02`;
+      assert.equal((await get(february, '')).status, 401);
+      assert.equal((await get(february, hrCookie)).status, 403);
+      for (const query of ['', '?period=', '?period=2020-2', '?period=2020-13', '?period=2020-02&period=2020-03']) {
+        assert.equal((await get(path + query)).status, 400);
+      }
+
+      const employeeId = worker.user.employeeId;
+      await dbs.attendance.attendance.createMany({
+        data: [
+          ...['2020-01-31', '2020-02-01', '2020-02-29', '2020-03-01'].map(date => ({ employeeId, workDate: dateValue(date) })),
+          { employeeId: other.user.employeeId, workDate: dateValue('2020-02-15') },
+        ],
+      });
+      const history = await get(`${february}&employeeId=${other.user.employeeId}`);
+      assert.equal(history.status, 200);
+      assert.match(history.response.headers.get('cache-control'), /no-store/);
+      assert.deepEqual(history.body.map(row => [row.employeeId, row.date]), [[employeeId, '2020-02-29'], [employeeId, '2020-02-01']]);
+      assert.deepEqual((await get(february, other.cookie)).body.map(row => row.date), ['2020-02-15']);
+      assert.deepEqual((await get(`${path}?period=2020-04`)).body, []);
+
+      const snapshotRecord = (await state()).records.find(row => row.date === today);
+      assert.ok(snapshotRecord.inEvidence && snapshotRecord.outEvidence && snapshotRecord.progress && snapshotRecord.corrections.length);
+      const currentMonth = await get(`${path}?period=${today.slice(0, 7)}`);
+      assert.deepEqual(currentMonth.body.find(row => row.date === today), snapshotRecord);
+    });
+    await t.test('requests validate inputs and return the persisted version after each mutation', async () => {
+      const leave = { type: 'Cuti', start: today, end: today, reason: '  Test request  ' };
+      const count = await dbs.attendance.request.count();
+      for (const changes of [{ type: ['Cuti'] }, { checkIn: '' }, { checkOut: null }, { end: '2020-02-30' }, { reason: '   ' }]) {
+        assert.equal((await api('/requests', { ...leave, ...changes }, 'POST', worker.cookie)).status, 400);
+      }
+      assert.equal((await api('/requests', leave, 'POST', '')).status, 401);
+      assert.equal(await dbs.attendance.request.count(), count);
+
+      const created = await api('/requests', { ...leave, employeeId: other.user.employeeId, name: 'Untrusted name' }, 'POST', worker.cookie);
+      assert.equal(created.status, 201);
+      const pending = created.body.request;
+      assert.equal(pending.employeeId, worker.user.employeeId);
+      assert.equal(pending.name, worker.user.profile.fullName);
+      assert.equal(pending.reason, 'Test request');
+      assert.equal(pending.status, 'Menunggu');
+      assert.deepEqual((await state()).requests.find(row => row.id === pending.id), pending);
+      assert.equal((await state(other.cookie)).requests.some(row => row.id === pending.id), false);
+      for (const id of ['1e0', '2147483648']) assert.equal((await decision(id)).status, 400);
+      assert.equal((await decision(pending.id, ['Disetujui'])).status, 400);
+      assert.equal((await decision(pending.id, 'Ditolak', worker.cookie)).status, 403);
+
+      const rejected = await decision(pending.id, 'Ditolak');
+      assert.equal(rejected.status, 201);
+      const saved = (await state()).requests.find(row => row.id === pending.id);
+      const { name, department, ...request } = saved;
+      assert.deepEqual(rejected.body.request, request);
+      assert.equal(request.status, 'Ditolak');
+      assert.equal(request.reviewer, `HR #${r.hr.id}`);
+      assert.ok(request.decidedAt);
+    });
+    await t.test('a one-field correction preserves the other time and both original audit times', async () => {
+      const date = '2020-03-01';
+      const checkInAt = new Date(`${date}T08:00:00+07:00`);
+      const checkOutAt = new Date(`${date}T17:00:00+07:00`);
+      const original = await dbs.attendance.attendance.update({
+        where: { employeeId_workDate: { employeeId: worker.user.employeeId, workDate: dateValue(date) } },
+        data: { checkInAt, checkOutAt },
+      });
+      const created = await api('/requests', {
+        type: 'Koreksi absensi', start: date, end: date, reason: 'Correct only checkout', checkOut: '18:00', baseVersion: original.version,
+      }, 'POST', worker.cookie);
+      assert.equal(created.status, 201);
+      const pending = created.body.request;
+      assert.equal(pending.checkIn, undefined);
+      assert.equal(pending.checkOut, '18:00');
+      assert.equal((await state()).requests.find(row => row.id === pending.id).checkIn, undefined);
+
+      const approved = await decision(pending.id);
+      assert.equal(approved.status, 201);
+      assert.equal(approved.body.request.status, 'Disetujui');
+      assert.equal(approved.body.request.checkIn, undefined);
+      const corrected = (await state()).records.find(row => row.date === date);
+      assert.equal(corrected.checkIn, checkInAt.toISOString());
+      assert.equal(corrected.checkOut, new Date(`${date}T18:00:00+07:00`).toISOString());
+      assert.deepEqual(corrected.corrections[0].before, { checkIn: checkInAt.toISOString(), checkOut: checkOutAt.toISOString() });
+    });
+    await t.test('attendance outage returns errors for dashboard, report and history',async()=>{
       await r.apps[2].close();
       assert.equal((await get('/dashboard/summary',hrCookie)).status,503);
       assert.equal((await get(`/reports/attendance?period=${today.slice(0, 7)}`,hrCookie)).status,503);
+      assert.equal((await get(`/attendance/history?period=${today.slice(0, 7)}`)).status,503);
     });
   } finally {await r.close();}
 });

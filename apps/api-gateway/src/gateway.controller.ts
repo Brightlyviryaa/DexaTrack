@@ -21,23 +21,34 @@ export class GatewayController {
   async call(client: ClientProxy, cmd: string, data: unknown) {
     return firstValueFrom(client.send({ cmd }, data).pipe(timeout(15000), catchError(e => { throw new HttpException(typeof e.message === 'string' ? e.message : 'Service belum tersedia.', [400, 401, 403, 404, 409, 413].includes(e.status) ? e.status : 503); })));
   }
-  async workforceCall(req: Request, action: string, data: unknown = {}) {
-    const user = await this.requireSession(req);
+  private callAsUser(user: { id: number; employeeId: number; role: string }, action: string, data: unknown = {}) {
     return this.call(this.attendance, 'workforce.execute', { actor: { accountId: user.id, employeeId: user.employeeId, role: user.role }, action, data });
+  }
+  async workforceCall(req: Request, action: string, data: unknown = {}) {
+    return this.callAsUser(await this.requireSession(req), action, data);
   }
   @Get('workforce') async workforce(@Req() req: Request) {
     const user = await this.requireSession(req);
-    const data = await this.call(this.attendance, 'workforce.execute', { actor: { accountId: user.id, employeeId: user.employeeId, role: user.role }, action: 'snapshot', data: {} });
+    const data = await this.callAsUser(user, 'snapshot');
     const ids: number[] = [...new Set<number>([...data.requests, ...data.records].map((r: { employeeId: number }) => r.employeeId))];
     const profiles = user.role === 'HR_ADMIN' ? (ids.length ? await this.call(this.employees, 'employees.profiles', { ids }) : []) : [user.profile];
     const employees = user.role === 'HR_ADMIN' ? await this.call(this.employees, 'employees.list', {}) : [];
     return { ...data, employees: [...employees, ...profiles.filter((p: { id: number }) => p && !employees.some((e: { id: number }) => e.id === p.id))], requests: data.requests.map((r: { employeeId: number }) => { const p = profiles.find((p: { id: number }) => p?.id === r.employeeId); return { ...r, name: p?.fullName ?? `Karyawan #${r.employeeId}`, department: p?.department ?? '' }; }) };
   }
   @Post('attendance') submitAttendance(@Req() req: Request) { return this.workforceCall(req, 'submit', req.body); }
-  @Post('requests') createRequest(@Req() req: Request) { return this.workforceCall(req, 'request', req.body); }
+  @Get('attendance/history') attendanceHistory(@Req() req: Request, @Query('period') period: unknown) {
+    return this.workforceCall(req, 'attendanceHistory', { period });
+  }
+  @Post('requests') async createRequest(@Req() req: Request) {
+    const user = await this.requireSession(req);
+    const result = await this.callAsUser(user, 'request', req.body);
+    if (!result.request) return result;
+    return { ...result, request: { ...result.request, name: user.profile?.fullName ?? `Karyawan #${user.employeeId}`, department: user.profile?.department ?? '' } };
+  }
   @Post('requests/:id/decision') async decideRequest(@Req() req: Request, @Param('id') id: string) {
-    await this.requireHR(req);
-    return this.workforceCall(req, 'decide', { id: Number(id), status: req.body?.status });
+    const user = await this.requireHR(req);
+    if (!/^\d+$/.test(id)) throw new BadRequestException('Keputusan tidak valid.');
+    return this.callAsUser(user, 'decide', { id: Number(id), status: req.body?.status });
   }
   @Get('attendance/photos/:id') async photo(@Req() req: Request, @Param('id') id: string, @Res() res: Response) {
     const photo = await this.workforceCall(req, 'photo', { id: Number(id) });

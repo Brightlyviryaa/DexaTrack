@@ -9,7 +9,7 @@ require('reflect-metadata');
 const { NestFactory } = require('@nestjs/core');
 const { Transport } = require('@nestjs/microservices');
 const { json } = require('express');
-async function startRuntime(gatewayPort = 14000) {
+async function startRuntime(gatewayPort = 14000, webOrigin = 'http://localhost:5173') {
   const root = resolve(__dirname, '../../..');
   const config = readFileSync(resolve(root, '.env'), 'utf8');
   const password = config.match(/^DEXATRACK_DB_PASSWORD=(.+)$/m)?.[1];
@@ -20,7 +20,7 @@ async function startRuntime(gatewayPort = 14000) {
   try { await admin.$executeRawUnsafe('CREATE DATABASE IF NOT EXISTS dexatrack_attendance_test'); } finally { await admin.$disconnect(); }
   for (const db of ['auth','employees','attendance']) execFileSync(process.execPath, [resolve(root,'node_modules/prisma/build/index.js'),'migrate','deploy'], { cwd:resolve(root,'apps',`${db}-service`),env:{...process.env,DATABASE_URL:url(db)},stdio:'pipe' });
   const photoDir = await mkdtemp(join(tmpdir(),'dexatrack-photos-'));
-  Object.assign(process.env,{ EMPLOYEES_HOST:'127.0.0.1',EMPLOYEES_PORT:'14001',ATTENDANCE_HOST:'127.0.0.1',ATTENDANCE_PORT:'14002',AUTH_HOST:'127.0.0.1',AUTH_PORT:'14003',WEB_ORIGIN:'http://localhost:5173',ATTENDANCE_PHOTO_DIR:photoDir,SMTP_HOST:'127.0.0.1',SMTP_PORT:config.match(/^DEXATRACK_SMTP_PORT=(.+)$/m)?.[1]??'1025' });
+  Object.assign(process.env,{ EMPLOYEES_HOST:'127.0.0.1',EMPLOYEES_PORT:'14001',ATTENDANCE_HOST:'127.0.0.1',ATTENDANCE_PORT:'14002',AUTH_HOST:'127.0.0.1',AUTH_PORT:'14003',WEB_ORIGIN:webOrigin,ATTENDANCE_PHOTO_DIR:photoDir,SMTP_HOST:'127.0.0.1',SMTP_PORT:config.match(/^DEXATRACK_SMTP_PORT=(.+)$/m)?.[1]??'1025' });
   const apps = [], dbs = {};
   async function close() { for (const app of [...apps].reverse()) await app.close(); await rm(photoDir,{recursive:true,force:true}); }
   try {
